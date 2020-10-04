@@ -1,3 +1,5 @@
+[The Show Page](https://lavezhang.github.io/jsdb/index.html)
+
 JSDB is a lightweight relational database based on JS (typescript).    
 It can run in the web browser and execute SQL statements through JS for web application's basic needs.
 
@@ -27,6 +29,7 @@ The more you praise me, the more functions I will implement.
 
 -----------------------------------------------------------------------
 
+[体验页面](https://lavezhang.github.io/jsdb/index.html)
 
 JSDB是基于JS（TypeScript）实现的一个轻量级关系型数据库，可以在浏览器中运行，通过JS执行SQL语句，满足前端WEB页面对数据的增、删、改、查需求。
 
