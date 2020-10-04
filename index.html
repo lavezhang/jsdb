@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JSDB</title>
+
+    <script type="text/javascript" src="static/codemirror/js/codemirror.js"></script>
+    <link rel="stylesheet" type="text/css" href="static/codemirror/css/docs.css"/>
+
+    <style>
+        table{
+            border-collapse:collapse;
+            border: 1px solid #000000;
+        }
+
+        td, th {
+            padding: 8px 12px;
+            text-align: center;
+            color: #333;
+            border: 1px solid black;
+            border-collapse: collapse;
+            background-color: #fff;
+        }
+
+        th {
+            background-color: lightgray;
+        }
+
+    </style>
+
+    <script src="src/SqlLexer.js"></script>
+    <script src="src/SqlError.js"></script>
+    <script src="src/ast/SqlNode.js"></script>
+    <script src="src/ast/SqlBetweenAndNode.js"></script>
+    <script src="src/ast/SqlBetweenNode.js"></script>
+    <script src="src/ast/SqlBoolNode.js"></script>
+    <script src="src/ast/SqlExpAddNode.js"></script>
+    <script src="src/ast/SqlExpAndNode.js"></script>
+    <script src="src/ast/SqlExpCaseNode.js"></script>
+    <script src="src/ast/SqlExpEqNode.js"></script>
+    <script src="src/ast/SqlExpFuncNode.js"></script>
+    <script src="src/ast/SqlExpHoldNode.js"></script>
+    <script src="src/ast/SqlExpMulNode.js"></script>
+    <script src="src/ast/SqlExpOrNode.js"></script>
+    <script src="src/ast/SqlExpRefNode.js"></script>
+    <script src="src/ast/SqlExpRelNode.js"></script>
+    <script src="src/ast/SqlExpUnaryNode.js"></script>
+    <script src="src/ast/SqlFieldNode.js"></script>
+    <script src="src/ast/SqlFieldsNode.js"></script>
+    <script src="src/ast/SqlFromNode.js"></script>
+    <script src="src/ast/SqlGroupByNode.js"></script>
+    <script src="src/ast/SqlHavingNode.js"></script>
+    <script src="src/ast/SqlIdentityNode.js"></script>
+    <script src="src/ast/SqlJoinNode.js"></script>
+    <script src="src/ast/SqlJoinsNode.js"></script>
+    <script src="src/ast/SqlLimitNode.js"></script>
+    <script src="src/ast/SqlModifiersNode.js"></script>
+    <script src="src/ast/SqlNullNode.js"></script>
+    <script src="src/ast/SqlNumberNode.js"></script>
+    <script src="src/ast/SqlOrderByNode.js"></script>
+    <script src="src/ast/SqlOrderNode.js"></script>
+    <script src="src/ast/SqlParamsNode.js"></script>
+    <script src="src/ast/SqlSelectNode.js"></script>
+    <script src="src/ast/SqlStarNode.js"></script>
+    <script src="src/ast/SqlStringNode.js"></script>
+    <script src="src/ast/SqlTableNode.js"></script>
+    <script src="src/ast/SqlWhereNode.js"></script>
+    <script src="src/ast/SqlInsertNode.js"></script>
+    <script src="src/ast/SqlUpdateNode.js"></script>
+    <script src="src/ast/SqlDeleteNode.js"></script>
+    <script src="src/ast/SqlCreateTableNode.js"></script>
+    <script src="src/ast/SqlFieldDeclareNode.js"></script>
+    <script src="src/SqlParser.js"></script>
+
+    <script src="src/SqlColumnType.js"></script>
+    <script src="src/SqlDataColumn.js"></script>
+    <script src="src/SqlGroupByValue.js"></script>
+    <script src="src/SqlDataRow.js"></script>
+    <script src="src/SqlDataTable.js"></script>
+    <script src="src/SqlDatabase.js"></script>
+    <script src="src/SqlContext.js"></script>
+
+</head>
+<body style="margin: 16px;">
+<div style="width: 800px;">
+    <div style="border: 1px solid black; height: 300px;">
+        <textarea id="code"></textarea>
+    </div>
+    <div style="margin-top: 8px;">
+        <input type="button" id="btnViewStaff" value="查看t_staff表" onclick="javascript: viewTable('t_staff');" />
+        <input type="button" id="btnViewGender" value="查看t_gender表" onclick="javascript: viewTable('t_gender');" />
+        <input type="button" id="btnViewDept" value="查看t_dept表" onclick="javascript: viewTable('t_dept');" />
+        <input type="button" id="btnTestSql1" value="测试SQL1" onclick="javascript: showTestSql(1);" style="margin-left: 32px;"/>
+        <input type="button" id="btnTestSql2" value="测试SQL2" onclick="javascript: showTestSql(2);" />
+        <input type="button" id="btnTestSql3" value="测试SQL3" onclick="javascript: showTestSql(3);" />
+        <input type="button" id="btnExecute" value="执行SQL" onclick="javascript: executeSql();" style="margin-left: 32px;"/>
+        <span id="timeCost"></span>
+    </div>
+    <div style="margin-top: 8px;" id="result">
+    </div>
+</div>
+
+<script type="text/javascript">
+    var editor = CodeMirror.fromTextArea('code', {
+        height: "300px",
+        parserfile: "../contrib/sql/js/parsesql.js",
+        stylesheet: "./static/codemirror/contrib/sql/css/sqlcolors.css",
+        path: "./static/codemirror/js/",
+        textWrapping: false,
+    });
+
+    var executeSql = function () {
+        var sql = editor.getCode();
+
+        var beginTime = new Date();
+        var result = database.execute(sql);
+        var timeCost = new Date().getTime() - beginTime.getTime();
+        document.getElementById('timeCost').innerHTML = '耗时：' + timeCost + 'ms';
+
+        if (result instanceof SqlError) {
+            alert('执行失败，第' + result.line + '行：' + result.msg);
+            return;
+        }
+        if (typeof result == 'number') {
+            alert('执行成功，受影响行数：' + result);
+            return;
+        }
+        if (result instanceof SqlDataTable) {
+            document.getElementById('result').innerHTML = result.toHtml();
+
+        }
+    };
+
+    var viewTable = function (tableName) {
+        if (!tableName) {
+            return;
+        }
+        editor.setCode('SELECT * FROM ' + tableName);
+        executeSql();
+    }
+
+    var showTestSql = function (i) {
+        if (i == 1) {
+            editor.setCode("SELECT\n" +
+                "    s.id,\n" +
+                "    s.name,\n" +
+                "    ifnull(s.gender, '--') AS gender_id, /*处理空值*/\n" +
+                "    (CASE g.name WHEN 'Male' THEN '男' WHEN 'Female' THEN '女' ELSE '未知' END) AS gender_name,\n" +
+                "    s.dept_id,\n" +
+                "    d.dept_name\n" +
+                "FROM t_staff s\n" +
+                "LEFT JOIN t_gender g ON g.id=s.gender\n" +
+                "LEFT JOIN t_dept d ON d.dept_id=s.dept_id\n" +
+                "WHERE d.dept_name IS NOT NULL\n" +
+                "LIMIT 3");
+        } else if (i == 2) {
+            editor.setCode("SELECT\n" +
+                "  s.gender,\n" +
+                "  count(*)\n" +
+                "FROM t_staff s\n" +
+                "GROUP BY s.gender\n" +
+                "HAVING COUNT(*) > 1");
+        } else if (i == 3) {
+            editor.setCode("SELECT\n" +
+                "  d.dept_name,\n" +
+                "  count(*)\n" +
+                "FROM t_staff s\n" +
+                "LEFT JOIN t_dept d ON d.dept_id=s.dept_id\n" +
+                "WHERE d.dept_name IS NOT NULL\n" +
+                "GROUP BY d.dept_name\n" +
+                "ORDER BY count(*)");
+        }
+        executeSql();
+    };
+
+    //生成测试表
+    var database = new SqlDatabase();
+    database.execute("create table t_gender(id number, name varchar(100))");
+    database.execute("create table t_dept(dept_id number, dept_name varchar)");
+    database.execute("create table t_staff(id varchar, name varchar, gender number, dept_id number)");
+
+    database.tables['t_gender'].addRow([1, 'Male']);
+    database.tables['t_gender'].addRow([2, 'Female']);
+
+    database.tables['t_dept'].addRow([101, 'Tech']);
+    database.tables['t_dept'].addRow([102, 'Finance']);
+
+    database.tables['t_staff'].addRow(['016001', 'Jack', 1, 102]);
+    database.tables['t_staff'].addRow(['016002', 'Bruce', 1, null]);
+    database.tables['t_staff'].addRow(['016003', 'Alan', null, 101]);
+    database.tables['t_staff'].addRow(['016004', 'Hellen', 2, 103]);
+    database.tables['t_staff'].addRow(['016005', 'Linda', 2, 101]);
+    database.tables['t_staff'].addRow(['016006', 'Royal', 3, 104]);
+
+</script>
+
+</body>
+</html>
