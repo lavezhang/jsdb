@@ -34,4 +34,6 @@ with / sub query / exists / alter / truncate
 transaction/commit/rollback   
 ... 
 
+The more you praise me, the more functions I will implement.
+
 如果大家多多点赞，我将努力补齐。^_^
