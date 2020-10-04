@@ -34,9 +34,9 @@ with / sub query / exists / alter / truncate
 transaction/commit/rollback   
 ... 
 
-A demo sql like this:    
+Some demo sqls like these:    
 
-一个范例SQL如下所示：    
+几个范例SQL如下所示：    
 
 ```sql
 SELECT
@@ -51,6 +51,26 @@ LEFT JOIN t_gender g ON g.id=s.gender
 LEFT JOIN t_dept d ON d.dept_id=s.dept_id
 WHERE d.dept_name IS NOT NULL
 LIMIT 3
+```
+
+```sql
+SELECT
+  s.gender,
+  count(*)
+FROM t_staff s
+GROUP BY s.gender
+HAVING COUNT(*) > 1
+```
+
+```sql
+SELECT
+  d.dept_name,
+  count(*)
+FROM t_staff s
+LEFT JOIN t_dept d ON d.dept_id=s.dept_id
+WHERE d.dept_name IS NOT NULL
+GROUP BY d.dept_name
+ORDER BY count(*)
 ```
 
 The more you praise me, the more functions I will implement.
