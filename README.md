@@ -11,7 +11,7 @@ select / distinct / from / join / left join / where / group by / having / order 
 +、-、*、/、%、>、>=、<、<=、=、<>、like、is、between、and、or、not、?   
 
 内置的标准函数只实现了：ifnull、len、substr、substring、instr、concat。      
-如果需要增加新的标准函数，可以在SqlContext类的构造函数中实现。所有的标准函数都注册到SqlContext.standardFunctions字段中。
+如果需要增加新的标准函数，可以在SqlContext类的构造函数中实现，所有的标准函数都注册到SqlContext.standardFunctions字段中。
 
 尚未实现的功能主要有：   
 with / sub query / exists / alter / truncate   
