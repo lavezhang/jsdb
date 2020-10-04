@@ -34,6 +34,25 @@ with / sub query / exists / alter / truncate
 transaction/commit/rollback   
 ... 
 
+A demo sql like this:    
+
+一个范例SQL如下所示：    
+
+```sql
+SELECT
+    s.id,
+    s.name,
+    ifnull(s.gender, '--') AS gender_id, /*处理空值*/
+    (CASE g.name WHEN 'Male' THEN '男' WHEN 'Female' THEN '女' ELSE '未知' END) AS gender_name,
+    s.dept_id,
+    d.dept_name
+FROM t_staff s
+LEFT JOIN t_gender g ON g.id=s.gender
+LEFT JOIN t_dept d ON d.dept_id=s.dept_id
+WHERE d.dept_name IS NOT NULL
+LIMIT 3
+```
+
 The more you praise me, the more functions I will implement.
 
 如果大家多多点赞，我将努力补齐。^_^
