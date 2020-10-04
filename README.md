@@ -57,7 +57,6 @@ transaction/commit/rollback
 
 几个范例SQL如下所示：    
 
-------------demo1--------------
 ```sql
 SELECT
     s.id,
@@ -72,7 +71,7 @@ LEFT JOIN t_dept d ON d.dept_id=s.dept_id
 WHERE d.dept_name IS NOT NULL
 LIMIT 3
 ```
-------------demo2--------------
+
 ```sql
 SELECT
   s.gender,
@@ -81,7 +80,7 @@ FROM t_staff s
 GROUP BY s.gender
 HAVING COUNT(*) > 1
 ```
-------------demo3--------------
+
 ```sql
 SELECT
   d.dept_name,
