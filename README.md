@@ -17,7 +17,7 @@ create table
 insert   
 update   
 delete   
-select / distinct / from / join / left join / where / group by / having / order by / limit
+select / distinct / from / join / left join / where / group by / having / order by / limit    
 +、-、*、/、%、>、>=、<、<=、=、<>、like、is、between、and、or、not、?   
 
 The built-in standard functions only implement: ifnull, len, substr, substring, instr, concat.    
