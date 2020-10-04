@@ -34,6 +34,10 @@ with / sub query / exists / alter / truncate
 transaction/commit/rollback   
 ... 
 
+The more you praise me, the more functions I will implement.
+
+如果大家多多点赞，我将努力补齐。^_^
+
 Some demo sqls like these:    
 
 几个范例SQL如下所示：    
@@ -74,6 +78,3 @@ GROUP BY d.dept_name
 ORDER BY count(*)
 ```
 
-The more you praise me, the more functions I will implement.
-
-如果大家多多点赞，我将努力补齐。^_^
