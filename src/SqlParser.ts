@@ -41,7 +41,8 @@
 ///<reference path="ast/SqlCreateTableNode.ts"/>
 ///<reference path="ast/SqlFieldDeclareNode.ts"/>
 /*
- * select       -> 'select' ['distinct'] field [',' field]* [from] [where] [groupby] [having] [orderby] [limit]
+ * select       -> 'select' ['distinct'] fields [from] [where] [groupby] [having] [orderby] [limit]
+ * fields       -> field [',' field]*
  * insert       -> 'insert' 'into' identity 'values' '(' identity [',' identity] * ')' 'values' '(' params ')'
  * update       -> 'update' identity 'set' identity '=' exp_or [',' identity '=' exp_or]* [ where ]
  * delete       -> 'delete' 'from' identity [ where ]
