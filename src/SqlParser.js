@@ -41,7 +41,8 @@
 ///<reference path="ast/SqlCreateTableNode.ts"/>
 ///<reference path="ast/SqlFieldDeclareNode.ts"/>
 /*
- * select       -> 'select' ['distinct'] field [',' field]* [from] [where] [groupby] [having] [orderby] [limit]
+ * select       -> 'select' ['distinct'] fields [from] [where] [groupby] [having] [orderby] [limit]
+ * fields       -> field [',' field]*
  * insert       -> 'insert' 'into' identity 'values' '(' identity [',' identity] * ')' 'values' '(' params ')'
  * update       -> 'update' identity 'set' identity '=' exp_or [',' identity '=' exp_or]* [ where ]
  * delete       -> 'delete' 'from' identity [ where ]
@@ -86,6 +87,64 @@ var SqlParser = /** @class */ (function () {
      * @param sql 要分析的SQL语句。
      */
     function SqlParser(sql) {
+        this.parseExpAndNode = function (parent) {
+            var beginToken = this.peekAndCheck();
+            if (!beginToken) {
+                return null;
+            }
+            var node1 = this.parseExpEqNode(parent);
+            if (this.errors.length > 0) {
+                return null;
+            }
+            if (!node1) {
+                this.errors.push(new SqlError('词法错误：解析逻辑与表达式失败。', beginToken[2]));
+                return null;
+            }
+            var nodeList = [node1];
+            var opToken = this.peek();
+            while (opToken && opToken[0] == TK_AND) {
+                var node = new SqlExpAndNode(parent, opToken[1], opToken[2]);
+                nodeList.push(node);
+                var node2Token = this.moveNext();
+                if (!node2Token) {
+                    this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
+                    return null;
+                }
+                var node2 = this.parseExpEqNode(parent);
+                if (this.errors.length > 0) {
+                    return null;
+                }
+                if (!node2) {
+                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
+                    return null;
+                }
+                nodeList.push(node2);
+                opToken = this.peek();
+            }
+            if (nodeList.length % 2 == 0) {
+                this.errors.push(new SqlError('词法错误：逻辑与表达式数量错误。' + opToken[1] + "右侧表达式失败。", opToken[2]));
+                return null;
+            }
+            //把列表转换为二叉树
+            var rootNode = null;
+            for (var i in nodeList) {
+                var node = nodeList[i];
+                if (!rootNode) {
+                    rootNode = node;
+                }
+                else if (node instanceof SqlExpAndNode) {
+                    this.setNodeParent(rootNode, node);
+                    rootNode = node;
+                }
+                else {
+                    this.setNodeParent(node, rootNode);
+                }
+            }
+            if (parent && rootNode) {
+                this.setNodeParent(rootNode, parent);
+            }
+            return rootNode;
+        };
         this.parseFactorNode = function (parent) {
             var beginToken = this.peekAndCheck();
             if (!beginToken) {
@@ -158,64 +217,6 @@ var SqlParser = /** @class */ (function () {
             }
             return null;
         };
-        this.parseExpAndNode = function (parent) {
-            var beginToken = this.peekAndCheck();
-            if (!beginToken) {
-                return null;
-            }
-            var node1 = this.parseExpEqNode(parent);
-            if (this.errors.length > 0) {
-                return null;
-            }
-            if (!node1) {
-                this.errors.push(new SqlError('词法错误：解析逻辑与表达式失败。', beginToken[2]));
-                return null;
-            }
-            var nodeList = [node1];
-            var opToken = this.peek();
-            while (opToken && opToken[0] == TK_AND) {
-                var node = new SqlExpAndNode(parent, opToken[1], opToken[2]);
-                nodeList.push(node);
-                var node2Token = this.moveNext();
-                if (!node2Token) {
-                    this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
-                    return null;
-                }
-                var node2 = this.parseExpEqNode(parent);
-                if (this.errors.length > 0) {
-                    return null;
-                }
-                if (!node2) {
-                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
-                    return null;
-                }
-                nodeList.push(node2);
-                opToken = this.peek();
-            }
-            if (nodeList.length % 2 == 0) {
-                this.errors.push(new SqlError('词法错误：逻辑与表达式数量错误。' + opToken[1] + "右侧表达式失败。", opToken[2]));
-                return null;
-            }
-            //把列表转换为二叉树
-            var rootNode = null;
-            for (var i in nodeList) {
-                var node = nodeList[i];
-                if (!rootNode) {
-                    rootNode = node;
-                }
-                else if (node instanceof SqlExpAndNode) {
-                    this.setNodeParent(rootNode, node);
-                    rootNode = node;
-                }
-                else {
-                    this.setNodeParent(node, rootNode);
-                }
-            }
-            if (parent && rootNode) {
-                this.setNodeParent(rootNode, parent);
-            }
-            return rootNode;
-        };
         var lexer = new SqlLexer();
         var tokenList = lexer.scan(sql);
         this.tokens = [];
@@ -228,242 +229,32 @@ var SqlParser = /** @class */ (function () {
         this.pos = 0;
         this.errors = [];
     }
-    SqlParser.prototype.parseNullNode = function (parent) {
+    SqlParser.prototype.parseExpOrNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
             return null;
         }
-        if (beginToken[0] == TK_NULL) {
-            this.moveNext();
-            return new SqlNullNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseBoolNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_TRUE || beginToken[0] == TK_FALSE) {
-            this.moveNext();
-            return new SqlBoolNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseNumberNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_INT || beginToken[0] == TK_FLOAT) {
-            this.moveNext();
-            return new SqlNumberNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseStringNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_STRING) {
-            this.moveNext();
-            return new SqlStringNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseStarNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_MUL) {
-            this.moveNext();
-            return new SqlStarNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseIdentityNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_IDENTITY) {
-            this.moveNext();
-            return new SqlIdentityNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseExpHoldNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_HOLD) {
-            this.moveNext();
-            return new SqlExpHoldNode(parent, beginToken[1], beginToken[2]);
-        }
-        return null;
-    };
-    SqlParser.prototype.parseExpRefNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        var beginIndex = this.pos;
-        var node1 = this.parseIdentityNode(null);
-        if (!node1) {
-            this.moveTo(beginIndex);
-            return null;
-        }
-        var dotToken = this.peek();
-        if (!dotToken || dotToken[0] != TK_DOT) {
-            this.moveTo(beginIndex);
-            return null;
-        }
-        var endToken = this.moveNext();
-        if (!endToken) {
-            this.errors.push(new SqlError('语法错误：' + beginToken[1] + '后缺少引用项的名称。', beginToken[2]));
-            return null;
-        }
-        if (endToken[0] == TK_MUL || endToken[0] == TK_IDENTITY) {
-            this.moveNext();
-            return new SqlExpRefNode(parent, beginToken[1] + dotToken[1] + endToken[1], beginToken[2]);
-        }
-        this.errors.push(new SqlError('语法错误：' + beginToken[1] + '后的引用项无效。', beginToken[2]));
-        return null;
-    };
-    SqlParser.prototype.parseExpUnaryNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        if (beginToken[0] == TK_NOT || beginToken[0] == TK_ADD || beginToken[0] == TK_SUB) {
-            var expToken = this.moveNext();
-            if (!expToken) {
-                this.errors.push(new SqlError('词法错误：符号' + beginToken[1] + "后面缺少表达式。", beginToken[2]));
-                return null;
-            }
-            var expNode = this.parseExpUnaryNode(parent);
-            if (this.errors.length > 0) {
-                return null;
-            }
-            if (!expNode) {
-                if (this.errors.length == 0) {
-                    this.errors.push(new SqlError('词法错误：一元表达式解析错误。', beginToken[2]));
-                }
-                return null;
-            }
-            //对正数和负数做特殊处理
-            if (expNode instanceof SqlNumberNode) {
-                if (beginToken[0] == TK_ADD) {
-                    if (parent) {
-                        this.setNodeParent(expNode, parent);
-                    }
-                    return expNode;
-                }
-                else if (beginToken[0] == TK_SUB) {
-                    expNode.value = '-' + expNode.value;
-                    if (parent) {
-                        this.setNodeParent(expNode, parent);
-                    }
-                    return expNode;
-                }
-            }
-            var node = new SqlExpUnaryNode(parent, beginToken[1], beginToken[2]);
-            this.setNodeParent(expNode, node);
-            return node;
-        }
-        return this.parseFactorNode(parent);
-    };
-    SqlParser.prototype.parseExpMulNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        var node1 = this.parseExpUnaryNode(parent);
+        var node1 = this.parseExpAndNode(parent);
         if (this.errors.length > 0) {
             return null;
         }
-        if (!node1) {
-            if (this.errors.length <= 0) {
-                this.errors.push(new SqlError('词法错误：解析乘除表达式失败。', beginToken[2]));
+        if (node1 == null) {
+            if (this.errors.length == 0) {
+                this.errors.push(new SqlError('词法错误：解析逻辑或表达式失败。', beginToken[2]));
             }
             return null;
         }
         var nodeList = [node1];
         var opToken = this.peek();
-        while (opToken && (opToken[0] == TK_MUL || opToken[0] == TK_DIV || opToken[0] == TK_MOD)) {
-            var node = new SqlExpMulNode(parent, opToken[1], opToken[2]);
+        while (opToken && opToken[0] == TK_OR) {
+            var node = new SqlExpOrNode(parent, opToken[1], opToken[2]);
             nodeList.push(node);
             var node2Token = this.moveNext();
             if (!node2Token) {
                 this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
                 return null;
             }
-            var node2 = this.parseExpUnaryNode(parent);
-            if (this.errors.length > 0) {
-                return null;
-            }
-            if (!node2) {
-                if (this.errors.length <= 0) {
-                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
-                }
-                return null;
-            }
-            nodeList.push(node2);
-            opToken = this.peek();
-        }
-        if (nodeList.length % 2 == 0) {
-            this.errors.push(new SqlError('词法错误：乘除表达式数量错误。', opToken[2]));
-            return null;
-        }
-        //把列表转换为二叉树
-        var rootNode = null;
-        for (var i in nodeList) {
-            var node = nodeList[i];
-            if (!rootNode) {
-                rootNode = node;
-            }
-            else if (node instanceof SqlExpMulNode) {
-                this.setNodeParent(rootNode, node);
-                rootNode = node;
-            }
-            else {
-                this.setNodeParent(node, rootNode);
-            }
-        }
-        if (parent && rootNode) {
-            this.setNodeParent(rootNode, parent);
-        }
-        return rootNode;
-    };
-    SqlParser.prototype.parseExpAddNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        var node1 = this.parseExpMulNode(parent);
-        if (this.errors.length > 0) {
-            return null;
-        }
-        if (node1 == null) {
-            if (this.errors.length == 0) {
-                this.errors.push(new SqlError('词法错误：解析加减表达式失败。', beginToken[2]));
-            }
-            return null;
-        }
-        var nodeList = [node1];
-        var opToken = this.peek();
-        while (opToken && (opToken[0] == TK_ADD || opToken[0] == TK_SUB)) {
-            var node = new SqlExpAddNode(parent, opToken[1], opToken[2]);
-            nodeList.push(node);
-            var node2Token = this.moveNext();
-            if (node2Token == null) {
-                this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
-                return null;
-            }
-            var node2 = this.parseExpMulNode(parent);
+            var node2 = this.parseExpAndNode(parent);
             if (this.errors.length > 0) {
                 return null;
             }
@@ -477,7 +268,7 @@ var SqlParser = /** @class */ (function () {
             opToken = this.peek();
         }
         if (nodeList.length % 2 == 0) {
-            this.errors.push(new SqlError('词法错误：加减表达式数量错误。', opToken[2]));
+            this.errors.push(new SqlError('词法错误：逻辑或表达式数量错误。', opToken[2]));
             return null;
         }
         //把列表转换为二叉树
@@ -487,69 +278,7 @@ var SqlParser = /** @class */ (function () {
             if (!rootNode) {
                 rootNode = node;
             }
-            else if (node instanceof SqlExpAddNode) {
-                this.setNodeParent(rootNode, node);
-                rootNode = node;
-            }
-            else {
-                this.setNodeParent(node, rootNode);
-            }
-        }
-        if (parent && rootNode) {
-            this.setNodeParent(rootNode, parent);
-        }
-        return rootNode;
-    };
-    SqlParser.prototype.parseExpRelNode = function (parent) {
-        var beginToken = this.peekAndCheck();
-        if (!beginToken) {
-            return null;
-        }
-        var node1 = this.parseExpAddNode(parent);
-        if (this.errors.length > 0) {
-            return null;
-        }
-        if (node1 == null) {
-            if (this.errors.length == 0) {
-                this.errors.push(new SqlError('词法错误：解析关系表达式失败。', beginToken[2]));
-            }
-            return null;
-        }
-        var nodeList = [node1];
-        var opToken = this.peek();
-        while (opToken && (opToken[0] == TK_GT || opToken[0] == TK_GE || opToken[0] == TK_LT || opToken[0] == TK_LE)) {
-            var node = new SqlExpRelNode(parent, opToken[1], opToken[2]);
-            nodeList.push(node);
-            var node2Token = this.moveNext();
-            if (!node2Token) {
-                this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
-                return null;
-            }
-            var node2 = this.parseExpAddNode(parent);
-            if (this.errors.length > 0) {
-                return null;
-            }
-            if (!node2) {
-                if (this.errors.length == 0) {
-                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
-                }
-                return null;
-            }
-            nodeList.push(node2);
-            opToken = this.peek();
-        }
-        if (nodeList.length % 2 == 0) {
-            this.errors.push(new SqlError('词法错误：关系表达式数量错误.', opToken[2]));
-            return null;
-        }
-        //把列表转换为二叉树
-        var rootNode = null;
-        for (var i in nodeList) {
-            var node = nodeList[i];
-            if (!rootNode) {
-                rootNode = node;
-            }
-            else if (node instanceof SqlExpRelNode) {
+            else if (node instanceof SqlExpOrNode) {
                 this.setNodeParent(rootNode, node);
                 rootNode = node;
             }
@@ -695,32 +424,32 @@ var SqlParser = /** @class */ (function () {
         }
         return rootNode;
     };
-    SqlParser.prototype.parseExpOrNode = function (parent) {
+    SqlParser.prototype.parseExpRelNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
             return null;
         }
-        var node1 = this.parseExpAndNode(parent);
+        var node1 = this.parseExpAddNode(parent);
         if (this.errors.length > 0) {
             return null;
         }
         if (node1 == null) {
             if (this.errors.length == 0) {
-                this.errors.push(new SqlError('词法错误：解析逻辑或表达式失败。', beginToken[2]));
+                this.errors.push(new SqlError('词法错误：解析关系表达式失败。', beginToken[2]));
             }
             return null;
         }
         var nodeList = [node1];
         var opToken = this.peek();
-        while (opToken && opToken[0] == TK_OR) {
-            var node = new SqlExpOrNode(parent, opToken[1], opToken[2]);
+        while (opToken && (opToken[0] == TK_GT || opToken[0] == TK_GE || opToken[0] == TK_LT || opToken[0] == TK_LE)) {
+            var node = new SqlExpRelNode(parent, opToken[1], opToken[2]);
             nodeList.push(node);
             var node2Token = this.moveNext();
             if (!node2Token) {
                 this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
                 return null;
             }
-            var node2 = this.parseExpAndNode(parent);
+            var node2 = this.parseExpAddNode(parent);
             if (this.errors.length > 0) {
                 return null;
             }
@@ -734,7 +463,7 @@ var SqlParser = /** @class */ (function () {
             opToken = this.peek();
         }
         if (nodeList.length % 2 == 0) {
-            this.errors.push(new SqlError('词法错误：逻辑或表达式数量错误。', opToken[2]));
+            this.errors.push(new SqlError('词法错误：关系表达式数量错误.', opToken[2]));
             return null;
         }
         //把列表转换为二叉树
@@ -744,7 +473,7 @@ var SqlParser = /** @class */ (function () {
             if (!rootNode) {
                 rootNode = node;
             }
-            else if (node instanceof SqlExpOrNode) {
+            else if (node instanceof SqlExpRelNode) {
                 this.setNodeParent(rootNode, node);
                 rootNode = node;
             }
@@ -756,6 +485,278 @@ var SqlParser = /** @class */ (function () {
             this.setNodeParent(rootNode, parent);
         }
         return rootNode;
+    };
+    SqlParser.prototype.parseExpAddNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        var node1 = this.parseExpMulNode(parent);
+        if (this.errors.length > 0) {
+            return null;
+        }
+        if (node1 == null) {
+            if (this.errors.length == 0) {
+                this.errors.push(new SqlError('词法错误：解析加减表达式失败。', beginToken[2]));
+            }
+            return null;
+        }
+        var nodeList = [node1];
+        var opToken = this.peek();
+        while (opToken && (opToken[0] == TK_ADD || opToken[0] == TK_SUB)) {
+            var node = new SqlExpAddNode(parent, opToken[1], opToken[2]);
+            nodeList.push(node);
+            var node2Token = this.moveNext();
+            if (node2Token == null) {
+                this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
+                return null;
+            }
+            var node2 = this.parseExpMulNode(parent);
+            if (this.errors.length > 0) {
+                return null;
+            }
+            if (!node2) {
+                if (this.errors.length == 0) {
+                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
+                }
+                return null;
+            }
+            nodeList.push(node2);
+            opToken = this.peek();
+        }
+        if (nodeList.length % 2 == 0) {
+            this.errors.push(new SqlError('词法错误：加减表达式数量错误。', opToken[2]));
+            return null;
+        }
+        //把列表转换为二叉树
+        var rootNode = null;
+        for (var i in nodeList) {
+            var node = nodeList[i];
+            if (!rootNode) {
+                rootNode = node;
+            }
+            else if (node instanceof SqlExpAddNode) {
+                this.setNodeParent(rootNode, node);
+                rootNode = node;
+            }
+            else {
+                this.setNodeParent(node, rootNode);
+            }
+        }
+        if (parent && rootNode) {
+            this.setNodeParent(rootNode, parent);
+        }
+        return rootNode;
+    };
+    SqlParser.prototype.parseExpMulNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        var node1 = this.parseExpUnaryNode(parent);
+        if (this.errors.length > 0) {
+            return null;
+        }
+        if (!node1) {
+            if (this.errors.length <= 0) {
+                this.errors.push(new SqlError('词法错误：解析乘除表达式失败。', beginToken[2]));
+            }
+            return null;
+        }
+        var nodeList = [node1];
+        var opToken = this.peek();
+        while (opToken && (opToken[0] == TK_MUL || opToken[0] == TK_DIV || opToken[0] == TK_MOD)) {
+            var node = new SqlExpMulNode(parent, opToken[1], opToken[2]);
+            nodeList.push(node);
+            var node2Token = this.moveNext();
+            if (!node2Token) {
+                this.errors.push(new SqlError('词法错误：符号' + opToken[1] + "后面缺少表达式。", opToken[2]));
+                return null;
+            }
+            var node2 = this.parseExpUnaryNode(parent);
+            if (this.errors.length > 0) {
+                return null;
+            }
+            if (!node2) {
+                if (this.errors.length <= 0) {
+                    this.errors.push(new SqlError('词法错误：解析符号' + opToken[1] + "右侧表达式失败。", opToken[2]));
+                }
+                return null;
+            }
+            nodeList.push(node2);
+            opToken = this.peek();
+        }
+        if (nodeList.length % 2 == 0) {
+            this.errors.push(new SqlError('词法错误：乘除表达式数量错误。', opToken[2]));
+            return null;
+        }
+        //把列表转换为二叉树
+        var rootNode = null;
+        for (var i in nodeList) {
+            var node = nodeList[i];
+            if (!rootNode) {
+                rootNode = node;
+            }
+            else if (node instanceof SqlExpMulNode) {
+                this.setNodeParent(rootNode, node);
+                rootNode = node;
+            }
+            else {
+                this.setNodeParent(node, rootNode);
+            }
+        }
+        if (parent && rootNode) {
+            this.setNodeParent(rootNode, parent);
+        }
+        return rootNode;
+    };
+    SqlParser.prototype.parseExpUnaryNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_NOT || beginToken[0] == TK_ADD || beginToken[0] == TK_SUB) {
+            var expToken = this.moveNext();
+            if (!expToken) {
+                this.errors.push(new SqlError('词法错误：符号' + beginToken[1] + "后面缺少表达式。", beginToken[2]));
+                return null;
+            }
+            var expNode = this.parseExpUnaryNode(parent);
+            if (this.errors.length > 0) {
+                return null;
+            }
+            if (!expNode) {
+                if (this.errors.length == 0) {
+                    this.errors.push(new SqlError('词法错误：一元表达式解析错误。', beginToken[2]));
+                }
+                return null;
+            }
+            //对正数和负数做特殊处理
+            if (expNode instanceof SqlNumberNode) {
+                if (beginToken[0] == TK_ADD) {
+                    if (parent) {
+                        this.setNodeParent(expNode, parent);
+                    }
+                    return expNode;
+                }
+                else if (beginToken[0] == TK_SUB) {
+                    expNode.value = '-' + expNode.value;
+                    if (parent) {
+                        this.setNodeParent(expNode, parent);
+                    }
+                    return expNode;
+                }
+            }
+            var node = new SqlExpUnaryNode(parent, beginToken[1], beginToken[2]);
+            this.setNodeParent(expNode, node);
+            return node;
+        }
+        return this.parseFactorNode(parent);
+    };
+    SqlParser.prototype.parseNullNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_NULL) {
+            this.moveNext();
+            return new SqlNullNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseBoolNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_TRUE || beginToken[0] == TK_FALSE) {
+            this.moveNext();
+            return new SqlBoolNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseNumberNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_INT || beginToken[0] == TK_FLOAT) {
+            this.moveNext();
+            return new SqlNumberNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseStringNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_STRING) {
+            this.moveNext();
+            return new SqlStringNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseStarNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_MUL) {
+            this.moveNext();
+            return new SqlStarNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseIdentityNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_IDENTITY) {
+            this.moveNext();
+            return new SqlIdentityNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseExpHoldNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        if (beginToken[0] == TK_HOLD) {
+            this.moveNext();
+            return new SqlExpHoldNode(parent, beginToken[1], beginToken[2]);
+        }
+        return null;
+    };
+    SqlParser.prototype.parseExpRefNode = function (parent) {
+        var beginToken = this.peekAndCheck();
+        if (!beginToken) {
+            return null;
+        }
+        var beginIndex = this.pos;
+        var node1 = this.parseIdentityNode(null);
+        if (!node1) {
+            this.moveTo(beginIndex);
+            return null;
+        }
+        var dotToken = this.peek();
+        if (!dotToken || dotToken[0] != TK_DOT) {
+            this.moveTo(beginIndex);
+            return null;
+        }
+        var endToken = this.moveNext();
+        if (!endToken) {
+            this.errors.push(new SqlError('语法错误：' + beginToken[1] + '后缺少引用项的名称。', beginToken[2]));
+            return null;
+        }
+        if (endToken[0] == TK_MUL || endToken[0] == TK_IDENTITY) {
+            this.moveNext();
+            return new SqlExpRefNode(parent, beginToken[1] + dotToken[1] + endToken[1], beginToken[2]);
+        }
+        this.errors.push(new SqlError('语法错误：' + beginToken[1] + '后的引用项无效。', beginToken[2]));
+        return null;
     };
     SqlParser.prototype.parseExpCaseNode = function (parent) {
         var beginToken = this.peekAndCheck();
@@ -1265,10 +1266,6 @@ var SqlParser = /** @class */ (function () {
         }
         return node;
     };
-    /**
-     * 解析select节点。
-     * @param parent
-     */
     SqlParser.prototype.parseSelectNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
@@ -1392,10 +1389,6 @@ var SqlParser = /** @class */ (function () {
         }
         return selectNode;
     };
-    /**
-     * 解析insert节点。
-     * @param parent
-     */
     SqlParser.prototype.parseInsertNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
@@ -1454,10 +1447,6 @@ var SqlParser = /** @class */ (function () {
         }
         return insertNode;
     };
-    /**
-     * 解析update节点。
-     * @param parent
-     */
     SqlParser.prototype.parseUpdateNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
@@ -1508,10 +1497,6 @@ var SqlParser = /** @class */ (function () {
         }
         return updateNode;
     };
-    /**
-     * 解析delete节点。
-     * @param parent
-     */
     SqlParser.prototype.parseDeleteNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
@@ -1544,10 +1529,6 @@ var SqlParser = /** @class */ (function () {
         }
         return deleteNode;
     };
-    /**
-     * 解析create table节点。
-     * @param parent
-     */
     SqlParser.prototype.parseCreateTableNode = function (parent) {
         var beginToken = this.peekAndCheck();
         if (!beginToken) {
