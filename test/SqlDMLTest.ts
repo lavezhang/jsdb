@@ -87,6 +87,7 @@ function createDemoDatabase(): SqlDatabase {
     database.execute("create table t_gender(id number, name varchar)");
     database.execute("create table t_dept(dept_id number, dept_name varchar)");
     database.execute("create table t_staff(id varchar, name varchar, gender number, dept_id number)");
+    database.execute("create table t_dept2(dept_id number, dept_name varchar)");
 
     let table1: SqlDataTable = database.tables['t_gender'];
     table1.addRow([1, 'Male']);
@@ -103,6 +104,11 @@ function createDemoDatabase(): SqlDatabase {
     table3.addRow(['016004', 'Hellen', 2, 103]);
     table3.addRow(['016005', 'Linda', 2, 101]);
     table3.addRow(['016006', 'Royal', 3, 104]);
+
+    let table4: SqlDataTable = database.tables['t_dept2'];
+    table4.addRow([101, 'Tech']);
+    table4.addRow([101, 'Tech2']);
+    table4.addRow([102, 'Finance']);
 
     return database;
 }
@@ -194,6 +200,26 @@ Assert.runCase('select join', function () {
         Assert.isEqual(result.rows.length, 2);
         Assert.isEqual(result.rows[0].values, ['016001', 'Jack', 1, 102, 'Male', 'Finance']);
         Assert.isEqual(result.rows[1].values, ['016005', 'Linda', 2, 101, 'Female', 'Tech']);
+        //result.print();
+    }
+
+    result = database.execute(`
+        SELECT
+            s.id,
+            s.name,
+            s.dept_id,
+            d.dept_name
+        FROM t_staff s
+        JOIN t_dept2 d ON d.dept_id=s.dept_id
+        `);
+    Assert.isTrue(result instanceof SqlDataTable);
+    if (result instanceof SqlDataTable) {
+        Assert.isEqual(result.rows.length, 5);
+        Assert.isEqual(result.rows[0].values, ['016001', 'Jack', 102, 'Finance']);
+        Assert.isEqual(result.rows[1].values, ['016003', 'Alan', 101, 'Tech']);
+        Assert.isEqual(result.rows[2].values, ['016003', 'Alan', 101, 'Tech2']);
+        Assert.isEqual(result.rows[3].values, ['016005', 'Linda', 101, 'Tech']);
+        Assert.isEqual(result.rows[4].values, ['016005', 'Linda', 101, 'Tech2']);
         //result.print();
     }
 });

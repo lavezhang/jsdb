@@ -219,16 +219,44 @@ class SqlSelectNode extends SqlNode {
                         }
                     }
                 }
-                if ((joinFaildCount == 0 || typeof filteredRowIndexSet[fullTable.rows[i].id] == 'undefined')
-                    || joinFaildCount < filteredRowIndexSet[fullTable.rows[i].id].failures) {
-                    filteredRowIndexSet[fullTable.rows[i].id] = {rowIndex: i, failures: joinFaildCount};
+                let rid = fullTable.rows[i].id;
+                if (typeof filteredRowIndexSet[rid] == 'undefined') {
+                    filteredRowIndexSet[rid] = {rowIndex: i, failures: joinFaildCount, repeatJoinRows: []};
+                } else if (joinFaildCount < filteredRowIndexSet[rid].failures) {
+                    filteredRowIndexSet[rid].rowIndex = i;
+                    filteredRowIndexSet[rid].failures = joinFaildCount;
+                } else if (joinFaildCount == 0) {
+                    if (filteredRowIndexSet[rid].failures == 0) {
+                        filteredRowIndexSet[rid].repeatJoinRows.push(fullTable.rows[i]);
+                    } else {
+                        filteredRowIndexSet[rid].rowIndex = i;
+                        filteredRowIndexSet[rid].failures = joinFaildCount;
+                    }
                 }
+                // if ((joinFaildCount == 0 || typeof filteredRowIndexSet[fullTable.rows[i].id] == 'undefined')
+                //     || joinFaildCount < filteredRowIndexSet[fullTable.rows[i].id].failures) {
+                //     filteredRowIndexSet[fullTable.rows[i].id] = {rowIndex: i, failures: joinFaildCount};
+                // }
             }
 
             //删除未join上的行
             for (let i = fullTable.rows.length - 1; i >= 0; i--) {
                 let r = filteredRowIndexSet[fullTable.rows[i].id];
-                if (i != r.rowIndex || r.failures > joinNodes.length) {
+                if (r.failures > joinNodes.length) {
+                    fullTable.deleteRow(i);
+                    continue;
+                }
+                if (r.rowIndex == i) {
+                    continue;
+                }
+                let needDelete = true;
+                for (let k = 0; k < r.repeatJoinRows.length; k++) {
+                    if (r.repeatJoinRows[k] == fullTable.rows[i]) {
+                        needDelete = false;
+                        break;
+                    }
+                }
+                if (needDelete) {
                     fullTable.deleteRow(i);
                 }
             }
