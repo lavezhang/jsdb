@@ -87,7 +87,7 @@ class SqlExpFuncNode extends SqlNode {
             let pNode = paramNodes[i];
             let v = null;
             if (pNode instanceof SqlStarNode) {
-                v = 1;// TODO: 这里应该改为判断该行所有列是否都为null
+                v = 1;// TODO: 这里应该改为判断该行所有列是否都不为null
             } else {
                 v = pNode.compute(ctx);
             }
