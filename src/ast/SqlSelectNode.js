@@ -232,10 +232,6 @@ var SqlSelectNode = /** @class */ (function (_super) {
                         filteredRowIndexSet[rid].failures = joinFaildCount;
                     }
                 }
-                // if ((joinFaildCount == 0 || typeof filteredRowIndexSet[fullTable.rows[i].id] == 'undefined')
-                //     || joinFaildCount < filteredRowIndexSet[fullTable.rows[i].id].failures) {
-                //     filteredRowIndexSet[fullTable.rows[i].id] = {rowIndex: i, failures: joinFaildCount};
-                // }
             }
             //删除未join上的行
             for (var i = fullTable.rows.length - 1; i >= 0; i--) {

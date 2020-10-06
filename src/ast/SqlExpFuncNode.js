@@ -92,7 +92,7 @@ var SqlExpFuncNode = /** @class */ (function (_super) {
             var pNode = paramNodes[i];
             var v_2 = null;
             if (pNode instanceof SqlStarNode) {
-                v_2 = 1; // TODO: 这里应该改为判断该行所有列是否都为null
+                v_2 = 1; // TODO: 这里应该改为判断该行所有列是否都不为null
             }
             else {
                 v_2 = pNode.compute(ctx);
