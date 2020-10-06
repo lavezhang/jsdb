@@ -233,10 +233,6 @@ class SqlSelectNode extends SqlNode {
                         filteredRowIndexSet[rid].failures = joinFaildCount;
                     }
                 }
-                // if ((joinFaildCount == 0 || typeof filteredRowIndexSet[fullTable.rows[i].id] == 'undefined')
-                //     || joinFaildCount < filteredRowIndexSet[fullTable.rows[i].id].failures) {
-                //     filteredRowIndexSet[fullTable.rows[i].id] = {rowIndex: i, failures: joinFaildCount};
-                // }
             }
 
             //删除未join上的行
