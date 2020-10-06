@@ -179,18 +179,18 @@
     database.execute("create table t_dept(dept_id number, dept_name varchar)");
     database.execute("create table t_staff(id varchar, name varchar, gender number, dept_id number)");
 
-    database.tables['t_gender'].addRow([1, 'Male']);
-    database.tables['t_gender'].addRow([2, 'Female']);
+    database.execute("insert into t_gender(id, name)values(1, 'Male')");
+    database.execute("insert into t_gender(id, name)values(1, 'Female')");
 
-    database.tables['t_dept'].addRow([101, 'Tech']);
-    database.tables['t_dept'].addRow([102, 'Finance']);
+    database.execute("insert into t_dept(dept_id, dept_name)values(101, 'Tech')");
+    database.execute("insert into t_dept(dept_id, dept_name)values(102, 'Finance')");
 
-    database.tables['t_staff'].addRow(['016001', 'Jack', 1, 102]);
-    database.tables['t_staff'].addRow(['016002', 'Bruce', 1, null]);
-    database.tables['t_staff'].addRow(['016003', 'Alan', null, 101]);
-    database.tables['t_staff'].addRow(['016004', 'Hellen', 2, 103]);
-    database.tables['t_staff'].addRow(['016005', 'Linda', 2, 101]);
-    database.tables['t_staff'].addRow(['016006', 'Royal', 3, 104]);
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016001', 'Jack', 1, 102)");
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016002', 'Bruce', 1, null)");
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016003', 'Alan', null, 101)");
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016004', 'Hellen', 2, 103)");
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016005', 'Linda', 2, 101)");
+    database.execute("insert into t_staff(id, name, gender, dept_id)values('016006', 'Royal', 3, 104)");
 
 </script>
 
