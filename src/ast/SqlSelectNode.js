@@ -306,6 +306,9 @@ var SqlSelectNode = /** @class */ (function (_super) {
         if (havingNode) {
             this.loadAggregateFunctions(havingNode, funcNodeList);
         }
+        if (orderByNode) {
+            this.loadAggregateFunctions(orderByNode, funcNodeList);
+        }
         var funcNodeCount = 0;
         for (var m in funcNodeList) {
             funcNodeCount++;

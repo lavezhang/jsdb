@@ -310,6 +310,9 @@ class SqlSelectNode extends SqlNode {
         if (havingNode) {
             this.loadAggregateFunctions(havingNode, funcNodeList);
         }
+        if (orderByNode) {
+            this.loadAggregateFunctions(orderByNode, funcNodeList);
+        }
         let funcNodeCount = 0;
         for (let m in funcNodeList) {
             funcNodeCount++;
